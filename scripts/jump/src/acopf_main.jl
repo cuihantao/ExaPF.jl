@@ -19,5 +19,5 @@ end
 show(timeroutput)
 end
 
-case="data/case9"
+case="data/case3"
 main()

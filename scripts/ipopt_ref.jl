@@ -25,7 +25,8 @@ function eval_f(x)
   # function to simplify the script and
   # follow the paper closely.
 
-  cost = 0.6 + P1 + 2.0*P2 + P1*P1 + 0.5*P2*P2
+  bmva = 100.0
+  cost = 0.6 + bmva*P1 + bmva*2.0*P2 + bmva*bmva*P1*P1 + bmva*bmva*0.5*P2*P2
 
   return cost
 end
@@ -165,7 +166,7 @@ end
 #VM2 = x[7]
 
 n = 7
-x_L = [-1e18,-1e18,-1e18,-1e18,-1e18,-1e18,-1e18]
+x_L = [0.9,-1e18,-1e18,-1e18,0.9,-1e18,0.9]
 x_U = [1e18,1e18,1e18,1e18,1e18,1e18,1e18]
 
 m = 4
@@ -182,7 +183,7 @@ hnnz = Int(n*(n+1)/2)
 prob = createProblem(n, x_L, x_U, m, g_L, g_U, m*n, hnnz,
                      eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h)
 
-prob.x = [1.0, 0.0, 0.0, 1.5, 1.0, 1.7, 1.0]
+prob.x = [1.0, 0.0, 0.0, 2.0, 1.0, 3.0, 1.0]
 
 # This tests callbacks.
 function intermediate(alg_mod::Int, iter_count::Int,
