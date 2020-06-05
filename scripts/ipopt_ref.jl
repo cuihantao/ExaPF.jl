@@ -24,10 +24,8 @@ function eval_f(x)
   # we fix generation weights inside the
   # function to simplify the script and
   # follow the paper closely.
-  w1 = 1.0
-  w2 = 1.0
 
-  cost = abs(P1 + P2)
+  cost = 0.6 + P1 + 2.0*P2 + P1*P1 + 0.5*P2*P2
 
   return cost
 end
@@ -54,13 +52,37 @@ function eval_g(x, g)
   VA31 = VA3 - VA1
   VA32 = VA3 - VA2
   VA13 = VA1 - VA3
+  VA21 = VA2 - VA1
+  VA12 = VA1 - VA2
 
-  g[1] = 4.0*VM2*VM2 + VM2*VM3*(-4*cos(VA23) + 10*sin(VA23)) - P2
-  g[2] = (8.0*VM3*VM3 + VM3*VM1*(-4*cos(VA31) + 5*sin(VA31))
-          + VM3*VM2*(-4*cos(VA32) + 10*sin(VA32)) + P3)
-  g[3] = (15.0*VM3*VM3 + VM3*VM1*(-4*sin(VA31) - 5*cos(VA31))
-          + VM3*VM2*(-4*sin(VA32) - 10*cos(VA32)) + Q3)
-  g[4] = 4.0*VM1*VM1 + VM1*VM3*(-4*cos(VA13) + 5*sin(VA13)) - P1
+  PD2 = 3.0
+  PD3 = 2.0
+
+
+  g[1] = (2.0*VM1*VM1
+          + VM1*VM2*(-1*cos(VA12) + 10.0*sin(VA12))
+          + VM1*VM3*(-1*cos(VA13) + 8*sin(VA13))
+          - P1)
+  g[2] = (VM2*VM1*(-1*cos(VA21) + 10*sin(VA21))
+          + 3.0*VM2*VM2
+          + VM2*VM3*(-2*cos(VA23) + 20*sin(VA23))
+          + PD2
+          - P2)
+  g[3] = (VM3*VM1*(-1*cos(VA31) + 8.0*sin(VA31))
+          + VM3*VM2*(-2*cos(VA32) + 20.0*sin(VA32))
+          + 3.0*VM3*VM3
+          + PD3)
+  g[4] = (VM3*VM1*(-1*sin(VA31) - 8.0*cos(VA31))
+          + VM3*VM2*(-2*sin(VA32) - 20.0*cos(VA32))
+          + 28.0*VM3*VM3)
+
+
+  #g[1] = 4.0*VM2*VM2 + VM2*VM3*(-4*cos(VA23) + 10*sin(VA23)) - P2
+  #g[2] = (8.0*VM3*VM3 + VM3*VM1*(-4*cos(VA31) + 5*sin(VA31))
+  #        + VM3*VM2*(-4*cos(VA32) + 10*sin(VA32)) + P3)
+  #g[3] = (15.0*VM3*VM3 + VM3*VM1*(-4*sin(VA31) - 5*cos(VA31))
+  #        + VM3*VM2*(-4*sin(VA32) - 10*cos(VA32)) + Q3)
+  #g[4] = 4.0*VM1*VM1 + VM1*VM3*(-4*cos(VA13) + 5*sin(VA13)) - P1
   return g
 end
 
@@ -133,6 +155,14 @@ function eval_h(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int3
     end
   end
 end
+  
+#VM3 = x[1]
+#VA3 = x[2]
+#VA2 = x[3]
+#P1  = x[4]
+#VM1 = x[5]
+#P2 = x[6]
+#VM2 = x[7]
 
 n = 7
 x_L = [-1e18,-1e18,-1e18,-1e18,-1e18,-1e18,-1e18]
@@ -165,3 +195,5 @@ end
 setIntermediateCallback(prob, intermediate)
 
 solvestat = solveProblem(prob)
+
+println(prob.x)

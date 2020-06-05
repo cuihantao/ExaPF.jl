@@ -33,28 +33,49 @@ function acopf_model(opf_data)
   #branch admitances
   YffR,YffI,YttR,YttI,YftR,YftI,YtfR,YtfI,YshR,YshI = computeAdmitances(lines, buses, baseMVA)
 
-  #
-  # JuMP model now
-  #
   opfmodel = Model(with_optimizer(Ipopt.Optimizer))
 
-  @variable(opfmodel, generators[i].Pmin <= Pg[i=1:ngen] <= generators[i].Pmax)
-  @variable(opfmodel, generators[i].Qmin <= Qg[i=1:ngen] <= generators[i].Qmax)
 
-  @variable(opfmodel, buses[i].Vmin <= Vm[i=1:nbus] <= buses[i].Vmax)
+  ##### WITH LIMITS
+  #@variable(opfmodel, generators[i].Pmin <= Pg[i=1:ngen] <= generators[i].Pmax)
+  #@variable(opfmodel, generators[i].Qmin <= Qg[i=1:ngen] <= generators[i].Qmax)
+
+  #@variable(opfmodel, buses[i].Vmin <= Vm[i=1:nbus] <= buses[i].Vmax)
+  #@variable(opfmodel, Va[1:nbus])
+  
+  
+  #### NO LIMITS
+  @variable(opfmodel, Pg[i=1:ngen])
+  @variable(opfmodel, Qg[i=1:ngen])
+
+  @variable(opfmodel, Vm[i=1:nbus])
   @variable(opfmodel, Va[1:nbus])
+
+  set_lower_bound(Vm[1], buses[1].Vmin)
+  set_upper_bound(Vm[1], buses[1].Vmax)
+  set_lower_bound(Vm[2], buses[2].Vmin)
+  set_upper_bound(Vm[2], buses[2].Vmax)
+  set_lower_bound(Vm[3], buses[3].Vmin)
+  set_upper_bound(Vm[3], buses[3].Vmax)
+  set_lower_bound(Vm[4], buses[4].Vmin)
+  set_upper_bound(Vm[4], buses[4].Vmax)
+  
+  set_lower_bound(Vm[5], buses[5].Vmin)
+  set_upper_bound(Vm[5], buses[5].Vmax)
+  set_lower_bound(Vm[6], buses[6].Vmin)
+  set_upper_bound(Vm[6], buses[6].Vmax)
+  set_lower_bound(Vm[7], buses[7].Vmin)
+  set_upper_bound(Vm[7], buses[7].Vmax)
+  set_lower_bound(Vm[8], buses[8].Vmin)
+  set_upper_bound(Vm[8], buses[8].Vmax)
+  set_lower_bound(Vm[9], buses[9].Vmin)
+  set_upper_bound(Vm[9], buses[9].Vmax)
+  
   #fix the voltage angle at the reference bus
   set_lower_bound(Va[opf_data.bus_ref], buses[opf_data.bus_ref].Va)
   set_upper_bound(Va[opf_data.bus_ref], buses[opf_data.bus_ref].Va)
 
   # minimize active power
-#  @NLobjective(opfmodel, 
-#		  Min, 
-#		  sum( generators[i].coeff[generators[i].n] + 
-#		       sum(generators[i].coeff[generators[i].n-k]*(baseMVA*Pg[i])^k for k=1:generators[i].n-1), 
-#		       for i=1:ngen)
-#		 )
- 
   @NLobjective(opfmodel, Min, sum( generators[i].coeff[generators[i].n-2]*(baseMVA*Pg[i])^2 
 			             +generators[i].coeff[generators[i].n-1]*(baseMVA*Pg[i])
 				     +generators[i].coeff[generators[i].n  ] for i=1:ngen))
@@ -82,47 +103,9 @@ function acopf_model(opf_data)
       - ( sum(baseMVA*Qg[g] for g in BusGeners[b]) - buses[b].Qd ) / baseMVA      #Sbus part
       ==0)
   end
-  #
-  # branch/lines flow limits
-  #
-  nlinelim=0
-  for l in 1:nline
-    if lines[l].rateA!=0 && lines[l].rateA<1.0e10
-      nlinelim += 1
-      flowmax=(lines[l].rateA/baseMVA)^2
-
-      #branch apparent power limits (from bus)
-      Yff_abs2=YffR[l]^2+YffI[l]^2; Yft_abs2=YftR[l]^2+YftI[l]^2
-      Yre=YffR[l]*YftR[l]+YffI[l]*YftI[l]; Yim=-YffR[l]*YftI[l]+YffI[l]*YftR[l]
-      @NLconstraint(
-        opfmodel,
-	Vm[busIdx[lines[l].from]]^2 *
-	( Yff_abs2*Vm[busIdx[lines[l].from]]^2 + Yft_abs2*Vm[busIdx[lines[l].to]]^2 
-	  + 2*Vm[busIdx[lines[l].from]]*Vm[busIdx[lines[l].to]]*(Yre*cos(Va[busIdx[lines[l].from]]-Va[busIdx[lines[l].to]])-Yim*sin(Va[busIdx[lines[l].from]]-Va[busIdx[lines[l].to]])) 
-	) 
-        - flowmax <=0)
-#    end
-#  end
-#  for l in 1:nline
-#    if lines[l].rateA!=0 && lines[l].rateA<1.0e10
-#      
-#      flowmax=(lines[l].rateA/baseMVA)^2
-
-      #branch apparent power limits (to bus)
-      Ytf_abs2=YtfR[l]^2+YtfI[l]^2; Ytt_abs2=YttR[l]^2+YttI[l]^2
-      Yre=YtfR[l]*YttR[l]+YtfI[l]*YttI[l]; Yim=-YtfR[l]*YttI[l]+YtfI[l]*YttR[l]
-      @NLconstraint(
-        opfmodel,
-	Vm[busIdx[lines[l].to]]^2 *
-        ( Ytf_abs2*Vm[busIdx[lines[l].from]]^2 + Ytt_abs2*Vm[busIdx[lines[l].to]]^2
-          + 2*Vm[busIdx[lines[l].from]]*Vm[busIdx[lines[l].to]]*(Yre*cos(Va[busIdx[lines[l].from]]-Va[busIdx[lines[l].to]])-Yim*sin(Va[busIdx[lines[l].from]]-Va[busIdx[lines[l].to]]))
-        )
-        - flowmax <=0)
-    end
-  end
   
+
   @printf("Buses: %d  Lines: %d  Generators: %d\n", nbus, nline, ngen)
-  println("Lines with limits  ", nlinelim)
  
   return opfmodel, Pg, Qg, Va, Vm
 end
