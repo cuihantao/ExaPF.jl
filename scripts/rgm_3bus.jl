@@ -26,12 +26,25 @@ function gfun!(F, x, u, p)
   VA23 = VA2 - VA3
   VA31 = VA3 - VA1
   VA32 = VA3 - VA2
+  VA13 = VA1 - VA3
+  VA21 = VA2 - VA1
+  VA12 = VA1 - VA2
 
-  F[1] = 4.0*VM2*VM2 + VM2*VM3*(-4*cos(VA23) + 10*sin(VA23)) - P2
-  F[2] = (8.0*VM3*VM3 + VM3*VM1*(-4*cos(VA31) + 5*sin(VA31))
-          + VM3*VM2*(-4*cos(VA32) + 10*sin(VA32)) + P3)
-  F[3] = (15.0*VM3*VM3 + VM3*VM1*(-4*sin(VA31) - 5*cos(VA31))
-          + VM3*VM2*(-4*sin(VA32) - 10*cos(VA32)) + Q3)
+  PD2 = 3.0
+  PD3 = 2.0
+
+  F[1] = (VM2*VM1*(-1*cos(VA21) + 10*sin(VA21))
+          + 3.0*VM2*VM2
+          + VM2*VM3*(-2*cos(VA23) + 20*sin(VA23))
+          + PD2
+          - P2)
+  F[2] = (VM3*VM1*(-1*cos(VA31) + 8.0*sin(VA31))
+          + VM3*VM2*(-2*cos(VA32) + 20.0*sin(VA32))
+          + 3.0*VM3*VM3
+          + PD3)
+  F[3] = (VM3*VM1*(-1*sin(VA31) - 8.0*cos(VA31))
+          + VM3*VM2*(-2*sin(VA32) - 20.0*cos(VA32))
+          + 28.0*VM3*VM3)
 end
 
 function gfun(x, u, p, T=typeof(x))
@@ -55,12 +68,26 @@ function gfun(x, u, p, T=typeof(x))
   VA23 = VA2 - VA3
   VA31 = VA3 - VA1
   VA32 = VA3 - VA2
+  VA13 = VA1 - VA3
+  VA21 = VA2 - VA1
+  VA12 = VA1 - VA2
 
-  F[1] = 4.0*VM2*VM2 + VM2*VM3*(-4*cos(VA23) + 10*sin(VA23)) - P2
-  F[2] = (8.0*VM3*VM3 + VM3*VM1*(-4*cos(VA31) + 5*sin(VA31))
-          + VM3*VM2*(-4*cos(VA32) + 10*sin(VA32)) + P3)
-  F[3] = (15.0*VM3*VM3 + VM3*VM1*(-4*sin(VA31) - 5*cos(VA31))
-          + VM3*VM2*(-4*sin(VA32) - 10*cos(VA32)) + Q3)
+  PD2 = 3.0
+  PD3 = 2.0
+
+  F[1] = (VM2*VM1*(-1*cos(VA21) + 10*sin(VA21))
+          + 3.0*VM2*VM2
+          + VM2*VM3*(-2*cos(VA23) + 20*sin(VA23))
+          + PD2
+          - P2)
+  F[2] = (VM3*VM1*(-1*cos(VA31) + 8.0*sin(VA31))
+          + VM3*VM2*(-2*cos(VA32) + 20.0*sin(VA32))
+          + 3.0*VM3*VM3
+          + PD3)
+  F[3] = (VM3*VM1*(-1*sin(VA31) - 8.0*cos(VA31))
+          + VM3*VM2*(-2*sin(VA32) - 20.0*cos(VA32))
+          + 28.0*VM3*VM3)
+  
   return F
 end
 
@@ -77,32 +104,11 @@ function cfun(x, u, p)
 
   VA13 = VA1 - VA3
 
-  # we fix generation weights inside the
-  # function to simplify the script and
-  # follow the paper closely.
-  w1 = 1.0
-  w2 = 1.0
-
-  cost = (w1*(4.0*VM1*VM1 + VM1*VM3*(-4*cos(VA13) + 5*sin(VA13))) +
-          w2*P2)
+  bmva = 100.0
+  cost = 0.6 + bmva*P1 + bmva*2.0*P2 + bmva*bmva*P1*P1 + bmva*bmva*0.5*P2*P2
+  
   return cost
 end
-
-function pslack(x, u, p)
-
-  VM3 = x[1]
-  VA3 = x[2]
-
-  VM1 = u[1]
-  P2 = u[2]
-
-  VA1 = p[1]
-
-  VA13 = VA1 - VA3
-
-  return (4.0*VM1*VM1 + VM1*VM3*(-4*cos(VA13) + 5*sin(VA13)))
-end
-
 
 # OPF COMPUTATION
 
@@ -132,13 +138,13 @@ x[3] = 0.0 #VA2
 
 # this is given by the problem data, but might be "controlled" via OPF
 u[1] = 1.0 #VM1
-u[2] = 1.7 #P2
+u[2] = 2.0 #P2
 u[3] = 1.0 #VM2
 
 # these parameters are fixed through the computation
 p[1] = 0.0 #VA1, slack angle
-p[2] = 2.0 #P3
-p[3] = 1.0 #Q3
+p[2] = 0.0 #P3
+p[3] = 0.0 #Q3
 
 
 
@@ -153,7 +159,15 @@ uk = copy(u)
 iterations = 0
 
 
+xk = solve_pf(xk, uk, p, false)
+println(xk)
+
+println(xk[2]*(180.0/pi))
+println(xk[3]*(180.0/pi))
+
+
 for i = 1:10
+  break
   global xk
   global uk
   println("Iteration ", i)
