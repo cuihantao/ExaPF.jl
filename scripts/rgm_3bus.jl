@@ -96,15 +96,21 @@ function cfun(x, u, p)
 
   VM3 = x[1]
   VA3 = x[2]
+  VA2 = x[3]
 
   VM1 = u[1]
   P2 = u[2]
+  VM2 = u[3]
 
   VA1 = p[1]
 
   VA13 = VA1 - VA3
+  VA12 = VA1 - VA2
 
   bmva = 100.0
+  P1 = (2.0*VM1*VM1
+          + VM1*VM2*(-1*cos(VA12) + 10.0*sin(VA12))
+          + VM1*VM3*(-1*cos(VA13) + 8*sin(VA13)))
   cost = 0.6 + bmva*P1 + bmva*2.0*P2 + bmva*bmva*P1*P1 + bmva*bmva*0.5*P2*P2
   
   return cost
@@ -160,14 +166,9 @@ iterations = 0
 
 
 xk = solve_pf(xk, uk, p, false)
-println(xk)
-
-println(xk[2]*(180.0/pi))
-println(xk[3]*(180.0/pi))
 
 
-for i = 1:10
-  break
+for i = 1:80
   global xk
   global uk
   println("Iteration ", i)
@@ -175,8 +176,13 @@ for i = 1:10
   # solve power flow
   println("Solving power flow")
   xk = solve_pf(xk, uk, p, false)
+  println("Cost: ", cfun(xk, uk, p))
 
-  # jacobian
+  # print
+  println(xk)
+  println(uk)
+
+  # jacobiana
   gx_x(x) = gfun(x, uk, p, typeof(x))
   gx = x -> ForwardDiff.jacobian(gx_x, x)
 
@@ -199,14 +205,23 @@ for i = 1:10
   grad_Lu = u -> (fu(u) + gu(u)'*lambda)
   grad_L = grad_Lu(uk)
   println("Norm of gradient ", norm(grad_L))
+  println(grad_L)
 
   # step
   println("Computing new control vector")
   c_par = 0.1
   # Optional linesearch
   c_par = ls(uk, grad_L, Lu, grad_Lu)
+  println("cpar: ", c_par)
   uk = uk - c_par*grad_L
-  
+
+  # Projection
+  uk[1] = max(0.9, uk[1])
+  uk[3] = max(0.9, uk[3])
+  uk[1] = min(1.1, uk[1])
+  uk[3] = min(1.1, uk[3])
+
+
   #@printf("VM3 %3.2f. VA3 %2.2f. VA2 %2.2f.\n", xk[1], xk[2], xk[3])
   #@printf("VM1 %3.2f. P2 %2.2f. VM2 %2.2f.\n", uk[1], uk[2], uk[3])
 end
