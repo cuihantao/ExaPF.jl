@@ -11,33 +11,30 @@ using ForwardDiff
 # End at (1.000..., 4.743..., 3.821..., 1.379...)
 
 function eval_f(x)
+
   VM3 = x[1]
   VA3 = x[2]
+  VA2 = x[3]
 
   VM1 = x[4]
   P2 = x[5]
+  VM2 = x[6]
 
   VA1 = p[1]
 
   VA13 = VA1 - VA3
+  VA12 = VA1 - VA2
 
-  # we fix generation weights inside the
-  # function to simplify the script and
-  # follow the paper closely.
-  w1 = 1.0
-  w2 = 1.0
+  bmva = 100.0
+  global P1 = (2.0*VM1*VM1
+          + VM1*VM2*(-1*cos(VA12) + 10.0*sin(VA12))
+          + VM1*VM3*(-1*cos(VA13) + 8*sin(VA13)))
+  cost = 0.6 + bmva*P1 + bmva*2.0*P2 + bmva*bmva*P1*P1 + bmva*bmva*0.5*P2*P2
 
-  cost = (w1*(4.0*VM1*VM1 + VM1*VM3*(-4*cos(VA13) + 5*sin(VA13))) +
-          w2*P2)
   return cost
 end
 
 function eval_g(x, g)
-  # Bad: g    = zeros(2)  # Allocates new array
-  # OK:  g[:] = zeros(2)  # Modifies 'in place'
-
-  # Get Float64 of Vectors{Float64}, that is the first parameter
-
   # retrieve variables
   VM3 = x[1]
   VA3 = x[2]
@@ -55,12 +52,27 @@ function eval_g(x, g)
   VA23 = VA2 - VA3
   VA31 = VA3 - VA1
   VA32 = VA3 - VA2
+  VA13 = VA1 - VA3
+  VA21 = VA2 - VA1
+  VA12 = VA1 - VA2
 
-  g[1] = 4.0*VM2*VM2 + VM2*VM3*(-4*cos(VA23) + 10*sin(VA23)) - P2
-  g[2] = (8.0*VM3*VM3 + VM3*VM1*(-4*cos(VA31) + 5*sin(VA31))
-          + VM3*VM2*(-4*cos(VA32) + 10*sin(VA32)) + P3)
-  g[3] = (15.0*VM3*VM3 + VM3*VM1*(-4*sin(VA31) - 5*cos(VA31))
-          + VM3*VM2*(-4*sin(VA32) - 10*cos(VA32)) + Q3)
+  PD2 = 3.0
+  PD3 = 2.0
+
+  g[1] = (VM2*VM1*(-1*cos(VA21) + 10*sin(VA21))
+          + 3.0*VM2*VM2
+          + VM2*VM3*(-2*cos(VA23) + 20*sin(VA23))
+          + PD2
+          - P2)
+  g[2] = (VM3*VM1*(-1*cos(VA31) + 8.0*sin(VA31))
+          + VM3*VM2*(-2*cos(VA32) + 20.0*sin(VA32))
+          + 3.0*VM3*VM3
+          + PD3)
+  g[3] = (VM3*VM1*(-1*sin(VA31) - 8.0*cos(VA31))
+          + VM3*VM2*(-2*sin(VA32) - 20.0*cos(VA32))
+          + 28.0*VM3*VM3)
+  
+
 end
 
 function eval_g(x)
@@ -134,8 +146,8 @@ function eval_h(x::Vector{Float64}, mode, rows::Vector{Int32}, cols::Vector{Int3
 end
 
 n = 6
-x_L = [-1e18,-1e18,-1e18,-1e18,-1e18,-1e18]
-x_U = [1e18,1e18,1e18,1e18,1e18,1e18]
+x_L = [-1e18,-1e18,-1e18,0.9,-1e18,0.9]
+x_U = [1e18,1e18,1e18,1.1,1e18,1.1]
 
 m = 3
 g_L = [0.0, 0.0, 0.0]
@@ -143,15 +155,15 @@ g_U = [0.0, 0.0, 0.0]
 
 p = zeros(3)
 p[1] = 0.0 #VA1, slack angle
-p[2] = 2.0 #P3
-p[3] = 1.0 #Q3
+p[2] = 0.0 #P3
+p[3] = 0.0 #Q3
 
 # Number of nonzeros in upper triangular Hessian
 hnnz = Int(n*(n+1)/2)
 prob = createProblem(n, x_L, x_U, m, g_L, g_U, m*n, hnnz,
                      eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h)
 
-prob.x = [1.0, 0.0, 0.0, 1.0, 1.7, 1.0]
+prob.x = [1.0, 0.0, 0.0, 1.0, 2.0, 1.0]
 
 # This tests callbacks.
 function intermediate(alg_mod::Int, iter_count::Int,
