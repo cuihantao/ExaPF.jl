@@ -1,6 +1,7 @@
   
 using Ipopt
 using ForwardDiff
+using Printf
 
 # hs071
 # min x1 * x4 * (x1 + x2 + x3) + x3
@@ -176,3 +177,14 @@ end
 setIntermediateCallback(prob, intermediate)
 
 solvestat = solveProblem(prob)
+
+bmva = 100.0
+println("Objective value: ", eval_f(prob.x)) 
+@printf("============================= BUSES ==================================\n")
+@printf("  BUS    Vm     Va   |   Pg (MW)    Qg(MVAr) \n")
+@printf("                     |     (generation)      \n") 
+@printf("----------------------------------------------------------------------\n")
+
+@printf("  1 | %6.2f  %6.2f | %6.2f\n", prob.x[4], p[1], P1*bmva)
+@printf("  2 | %6.2f  %6.2f | %6.2f\n", prob.x[6], prob.x[3], prob.x[5]*bmva)
+@printf("  3 | %6.2f  %6.2f | \n", prob.x[1], prob.x[2])
