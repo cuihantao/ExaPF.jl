@@ -108,12 +108,26 @@ function cfun(x, u, p)
   VA12 = VA1 - VA2
 
   bmva = 100.0
-  P1 = (2.0*VM1*VM1
+  global P1 = (2.0*VM1*VM1
           + VM1*VM2*(-1*cos(VA12) + 10.0*sin(VA12))
           + VM1*VM3*(-1*cos(VA13) + 8*sin(VA13)))
   cost = 0.6 + bmva*P1 + bmva*2.0*P2 + bmva*bmva*P1*P1 + bmva*bmva*0.5*P2*P2
   
   return cost
+end
+
+function projbounds!(uk::Vector{Float64}, ub::Vector{Float64}, lb::Vector{Float64})
+  for i in 1:length(uk)
+    if uk[i] > ub[i]
+      # d[i] = 0.0
+      uk[i] = ub[i]
+    end
+    if uk[i] < lb[i]
+      # d[i] = 0.0
+      uk[i] = lb[i]
+    end
+  end
+  return nothing
 end
 
 # OPF COMPUTATION
@@ -135,6 +149,8 @@ end
 # initial parameters
 x = zeros(3)
 u = zeros(3)
+lb = zeros(3)
+ub = zeros(3)
 p = zeros(3)
 
 # this is an initial guess
@@ -152,7 +168,15 @@ p[1] = 0.0 #VA1, slack angle
 p[2] = 0.0 #P3
 p[3] = 0.0 #Q3
 
+# Box constraints
 
+lb[1] = 0.9
+lb[2] = -Inf
+lb[3] = 0.9
+
+ub[1] = 1.1
+ub[2] = Inf
+ub[3] = 1.1
 
 # print initial guesses
 println(x)
@@ -167,20 +191,21 @@ iterations = 0
 
 xk = solve_pf(xk, uk, p, false)
 
+d = similar(u)
+d .= Inf
+it = 1
+maxit = 1000
+ukk = similar(uk)
+omega = Inf
+eta = Inf
 
-for i = 1:80
-  global xk
-  global uk
-  println("Iteration ", i)
+while omega > 1e-6 && it < maxit && eta > 1e-6
+  global xk, uk, it, ukk
+  println("Iteration ", it)
 
   # solve power flow
   println("Solving power flow")
   xk = solve_pf(xk, uk, p, false)
-  println("Cost: ", cfun(xk, uk, p))
-
-  # print
-  println(xk)
-  println(uk)
 
   # jacobiana
   gx_x(x) = gfun(x, uk, p, typeof(x))
@@ -204,24 +229,33 @@ for i = 1:80
   Lu = u -> cfun_u(u) + gx_u(u)'*lambda
   grad_Lu = u -> (fu(u) + gu(u)'*lambda)
   grad_L = grad_Lu(uk)
-  println("Norm of gradient ", norm(grad_L))
-  println(grad_L)
 
   # step
   println("Computing new control vector")
   c_par = 0.1
   # Optional linesearch
-  c_par = ls(uk, grad_L, Lu, grad_Lu)
+  c_par = ls(uk, Lu, grad_Lu, -grad_L)
+  ukk .= uk
   println("cpar: ", c_par)
-  uk = uk - c_par*grad_L
+  uk = ukk - c_par * grad_L
+  # Project onto box
+  projbounds!(uk, ub, lb)
 
-  # Projection
-  uk[1] = max(0.9, uk[1])
-  uk[3] = max(0.9, uk[3])
-  uk[1] = min(1.1, uk[1])
-  uk[3] = min(1.1, uk[3])
+  global omega = norm(ukk - uk)
+  global eta = norm(gfun(xk, uk, p, typeof(xk)))
+  println("omega: $omega")
+  println("eta: $eta")
 
+  it+=1
 
-  #@printf("VM3 %3.2f. VA3 %2.2f. VA2 %2.2f.\n", xk[1], xk[2], xk[3])
-  #@printf("VM1 %3.2f. P2 %2.2f. VM2 %2.2f.\n", uk[1], uk[2], uk[3])
 end
+bmva = 100.0
+println("Objective value: ", cfun(xk, uk, p)) 
+@printf("============================= BUSES ==================================\n")
+@printf("  BUS    Vm     Va   |   Pg (MW)    Qg(MVAr) \n")
+@printf("                     |     (generation)      \n") 
+@printf("----------------------------------------------------------------------\n")
+
+@printf("  1 | %6.2f  %6.2f | %6.2f\n", uk[1], p[1], P1*bmva)
+@printf("  2 | %6.2f  %6.2f | %6.2f\n", uk[3], xk[2], uk[2]*bmva)
+@printf("  3 | %6.2f  %6.2f | \n", xk[1], xk[2])
