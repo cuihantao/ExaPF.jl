@@ -257,5 +257,5 @@ println("Objective value: ", cfun(xk, uk, p))
 @printf("----------------------------------------------------------------------\n")
 
 @printf("  1 | %6.2f  %6.2f | %6.2f\n", uk[1], p[1], P1*bmva)
-@printf("  2 | %6.2f  %6.2f | %6.2f\n", uk[3], xk[2], uk[2]*bmva)
+@printf("  2 | %6.2f  %6.2f | %6.2f\n", uk[3], xk[3], uk[2]*bmva)
 @printf("  3 | %6.2f  %6.2f | \n", xk[1], xk[2])
